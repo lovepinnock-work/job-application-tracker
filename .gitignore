@@ -1,3 +1,5 @@
 .env
+service_account.json
 job_tracker/__pycache__/
 test_emails/
+settings.json

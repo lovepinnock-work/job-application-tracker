@@ -1,18 +1,9 @@
-import uuid
-
 from util import make_app_key, make_event_key, norm
 
 
 class Reconciler:
-    def __init__(self):
-        # app_key -> application row
-        self.apps = {}
-
-        # event_id -> event row
-        self.events = {}
-
-        # list of {"EventID": ..., "ApplicationID": ...}
-        self.event_links = []
+    def __init__(self, repo):
+        self.repo = repo
 
     def process(self, ext):
         if not ext.is_job_related:
@@ -31,172 +22,115 @@ class Reconciler:
             self._handle_status_update(ext, app_key, "Canceled")
 
         elif ext.email_type in {"assessment_invite", "assessment_completed", "assessment_passed", "assessment_failed"}:
-            self._handle_event(ext, app_key, fallback_status="Assessment")
+            self._handle_event(ext, app_key, "Assessment")
 
         elif ext.email_type in {"interview_invite", "interview_completed"}:
-            self._handle_event(ext, app_key, fallback_status="Interviewing")
+            self._handle_event(ext, app_key, "Interviewing")
 
         elif ext.email_type in {"offer", "offer_deadline"}:
-            self._handle_event(ext, app_key, fallback_status="Offer")
-
-        self._print_state()
+            self._handle_event(ext, app_key, "Offer")
 
     def _handle_application_confirmation(self, ext, app_key):
         if not app_key:
             print("missing app key for application_confirmation")
+            self.repo.enqueue_review("missing app key", ext)
             return
 
-        app = self.apps.get(app_key)
+        app = self.repo.find_application_by_app_key(app_key)
 
         if app:
             if app["Status"] in {"Rejected", "Canceled"}:
                 print(f"reapply detected: {app_key}")
-                app["Status"] = "Awaiting"
-                app["Date Applied"] = ext.application_date or "NOW"
-                app["Last Updated"] = ext.application_date or "NOW"
+                self.repo.reset_for_reapply(app, ext)
             else:
                 print(f"refresh existing application: {app_key}")
-                app["Last Updated"] = ext.application_date or "NOW"
+                self.repo.refresh_application(app, ext)
         else:
             print(f"new application: {app_key}")
-            self.apps[app_key] = {
-                "ApplicationID": str(uuid.uuid4()),
-                "Company": ext.company,
-                "Role Display": ext.role_display,
-                "Role Key": ext.role_key,
-                "Job ID": ext.job_id,
-                "App Key": app_key,
-                "Status": ext.status or "Awaiting",
-                "Date Applied": ext.application_date or "NOW",
-                "Last Updated": ext.application_date or "NOW",
-                "Interview Date": None,
-                "Assessment Date": None,
-                "Offer Due Date": None,
-            }
+            self.repo.create_application(ext, app_key)
 
     def _handle_status_update(self, ext, app_key, new_status):
         if not app_key:
             print(f"missing app key for {new_status.lower()}")
+            self.repo.enqueue_review(f"missing app key for {new_status.lower()}", ext)
             return
 
-        app = self.apps.get(app_key)
+        app = self.repo.find_application_by_app_key(app_key)
         if app:
             print(f"updated to {new_status.lower()}: {app_key}")
-            app["Status"] = new_status
-            app["Last Updated"] = ext.application_date or ext.event_date or "NOW"
+            self.repo.update_application_status(app, ext, new_status)
         else:
             print(f"{new_status.lower()} but no matching application: {app_key}")
+            self.repo.enqueue_review(f"{new_status.lower()} but no matching application", ext)
 
     def _handle_event(self, ext, app_key, fallback_status):
         target_apps = self._resolve_target_applications(ext, app_key)
 
         if not target_apps:
             print("event found but no matching applications")
+            self.repo.enqueue_review("event found but no matching applications", ext)
             return
 
-        # If this is an assessment completion, update an existing open event instead of creating a new one
-        if ext.email_type in {"assessment_completed", "assessment_passed", "assessment_failed"}:
-            event_id = self._find_existing_event_for_targets(ext, target_apps)
-
-            if not event_id:
-                event_id = self._create_event(ext)
-            else:
-                self._update_event(event_id, ext)
-
+        if ext.event_type == "Assessment":
+            normalized_event_date = (ext.event_date or "")[:10] if ext.event_date else ""
+            normalized_due_date = (ext.due_date or "")[:10] if ext.due_date else ""
         else:
-            event_id = self._find_existing_event_for_targets(ext, target_apps)
-            if event_id:
-                self._update_event(event_id, ext)
-            else:
-                event_id = self._create_event(ext)
-
-        for app in target_apps:
-            self._link_event_to_application(event_id, app["ApplicationID"])
-
-            app["Status"] = ext.status or fallback_status
-            app["Last Updated"] = ext.event_date or ext.application_date or ext.due_date or "NOW"
-
-            if ext.event_type == "Assessment":
-                app["Assessment Date"] = ext.due_date or ext.event_date or app["Assessment Date"]
-
-            elif ext.event_type == "Interview":
-                app["Interview Date"] = ext.event_date or app["Interview Date"]
-
-            elif ext.event_type == "Offer":
-                app["Offer Due Date"] = ext.due_date or app["Offer Due Date"]
-
-        print(f"linked event {event_id} to {len(target_apps)} application(s)")
-
-    def _create_event(self, ext):
-        normalized_event_date = (ext.event_date or "")[:10] if ext.event_date else ""
-        normalized_due_date = (ext.due_date or "")[:10] if ext.due_date else ""
+            normalized_event_date = (ext.event_date or "")[:10] if ext.event_date else ""
+            normalized_due_date = (ext.due_date or "")[:10] if ext.due_date else ""
 
         event_key = make_event_key(
             ext.company,
             ext.event_type,
             normalized_event_date,
             normalized_due_date,
-            ""  # do not use message-specific value for event identity
+            ""
         )
 
-        for existing_id, event in self.events.items():
-            if event["Event Key"] == event_key:
-                return existing_id
+        event = self.repo.find_event_by_event_key(event_key)
+        if event:
+            self.repo.update_event(event, ext)
+            event_id = event["Event ID"]
+        else:
+            event = self.repo.create_event(event_key, ext)
+            event_id = event["Event ID"]
 
-        event_id = str(uuid.uuid4())
-        self.events[event_id] = {
-            "EventID": event_id,
-            "Event Key": event_key,
-            "Company": ext.company,
-            "Event Type": ext.event_type,
-            "Event Status": ext.event_status,
-            "Event Date": ext.event_date,
-            "Due Date": ext.due_date,
-            "Confidence": ext.confidence,
-            "Notes": ext.notes,
-        }
-        return event_id
+        for app in target_apps:
+            self.repo.link_event_to_application(event_id, app["Application ID"])
+            self.repo.update_application_event_fields(app, ext, fallback_status)
+
+        print(f"linked event {event_id} to {len(target_apps)} application(s)")
 
     def _resolve_target_applications(self, ext, app_key):
         matches = []
 
-        # Case 1: exact current app key match
-        if app_key and app_key in self.apps:
-            matches.append(self.apps[app_key])
+        if app_key:
+            app = self.repo.find_application_by_app_key(app_key)
+            if app:
+                matches.append(app)
 
-        # Case 2: explicit application targets in email
-        if ext.application_targets:
+        if ext.application_targets and ext.company:
             target_norms = {norm(t) for t in ext.application_targets if t}
-            for app in self.apps.values():
-                role_key_norm = norm(app["Role Key"])
-                job_id_norm = norm(app["Job ID"])
+            open_apps = self.repo.get_open_applications_by_company(ext.company)
+            for app in open_apps:
+                role_key_norm = norm(app.get("Role Key"))
+                job_id_norm = norm(app.get("Job ID"))
                 if role_key_norm in target_norms or (job_id_norm and job_id_norm in target_norms):
                     if app not in matches:
                         matches.append(app)
 
-        # Case 3: shared event -> all open apps at same company
         if ext.shared_event and ext.company:
-            company_norm = norm(ext.company)
-            for app in self.apps.values():
-                if norm(app["Company"]) == company_norm and app["Status"] not in {"Rejected", "Canceled", "Closed"}:
-                    if app not in matches:
-                        matches.append(app)
+            open_apps = self.repo.get_open_applications_by_company(ext.company)
+            for app in open_apps:
+                if app not in matches:
+                    matches.append(app)
 
-        # Case 4: fallback for generic event emails with no targets
-        # If event email names a company and there are open apps there:
         if not matches and ext.company and ext.event_type:
-            company_norm = norm(ext.company)
-            company_open_apps = [
-                app for app in self.apps.values()
-                if norm(app["Company"]) == company_norm and app["Status"] not in {"Rejected", "Canceled", "Closed"}
-            ]
+            open_apps = self.repo.get_open_applications_by_company(ext.company)
 
-            if len(company_open_apps) == 1:
-                matches.extend(company_open_apps)
-
-            elif len(company_open_apps) > 1 and ext.event_type == "Assessment":
-                # assessment emails are often shared across multiple active apps
-                matches.extend(company_open_apps)
+            if len(open_apps) == 1:
+                matches.extend(open_apps)
+            elif len(open_apps) > 1 and ext.event_type == "Assessment":
+                matches.extend(open_apps)
 
         return matches
 

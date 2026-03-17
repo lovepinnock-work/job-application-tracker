@@ -2,6 +2,7 @@ import os
 
 from extractor import GeminiExtractor
 from reconciler import Reconciler
+from sheets_repo import SheetsRepo
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
 
@@ -31,7 +32,8 @@ def load_email(path):
 
 def main():
     extractor = GeminiExtractor()
-    reconciler = Reconciler()
+    repo = SheetsRepo()
+    reconciler = Reconciler(repo)
 
     files = [
         "test_emails/amazon_apply.txt",
