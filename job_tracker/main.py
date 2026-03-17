@@ -34,8 +34,14 @@ def main():
     reconciler = Reconciler()
 
     files = [
-        "test_emails/glean_apply.txt",
-        "test_emails/glean_reject.txt",
+        "test_emails/amazon_apply.txt",
+        "test_emails/amazon_apply_1.txt",
+        "test_emails/amazon_assessment_invite.txt",
+        "test_emails/amazon_assessment_reminder.txt",
+        "test_emails/amazon_assessment_completed.txt",
+        "test_emails/amazon_reject.txt",
+        "test_emails/amazon_reject_1.txt",
+        "test_emails/sf_assessment_invite.txt"
     ]
 
     """
@@ -66,7 +72,7 @@ def main():
             from_header=from_header,
             date_iso="2026-03-14T12:00:00Z",
             thread_id="test-thread",
-            message_id=f
+            message_id=f,
         )
 
         print("\n--- EXTRACTION ---")

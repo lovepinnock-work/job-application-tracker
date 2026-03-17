@@ -1,5 +1,5 @@
 import os
-from typing import Optional, Literal
+from typing import Optional, Literal, List
 
 from dotenv import load_dotenv
 from google import genai
@@ -24,6 +24,10 @@ Rules:
 - If a job ID or requisition ID appears, include it.
 - If an assessment/interview/offer has a concrete date or due date, extract it.
 - If no reliable date is present, return null rather than guessing.
+- If an assessment, interview, or offer email does not name a specific role or job ID but clearly applies to multiple active applications at the same company, set shared_event to true.
+- If the email appears to be a generic online assessment for all active applications at a company, prefer shared_event=true rather than false.
+- application_targets should contain any job IDs, role keys, or role references explicitly mentioned in the email.
+- If no targets are explicitly mentioned, return an empty list.
 - Return only valid structured data matching the schema.
 """
 
@@ -62,6 +66,7 @@ class GeminiExtraction(BaseModel):
     ]] = Field(default=None)
 
     application_date: Optional[str] = Field(default=None)
+
     event_type: Optional[Literal["Assessment", "Interview", "Offer"]] = Field(default=None)
 
     event_status: Optional[Literal[
@@ -77,6 +82,10 @@ class GeminiExtraction(BaseModel):
 
     event_date: Optional[str] = Field(default=None)
     due_date: Optional[str] = Field(default=None)
+
+    # NEW
+    shared_event: bool = Field(default=False)
+    application_targets: List[str] = Field(default_factory=list)
 
     reapply_signal: bool
     confidence: float
@@ -133,6 +142,8 @@ class GeminiExtractor:
                 event_status=None,
                 event_date=None,
                 due_date=None,
+                shared_event=False,
+                application_targets=[],
                 reapply_signal=False,
                 confidence=0.99,
                 notes="Filtered as obvious non-job email",
@@ -158,7 +169,6 @@ class GeminiExtractor:
             ),
         )
 
-        # The SDK can return parsed structured output when using a Pydantic schema.
         parsed = response.parsed
         if parsed is None:
             parsed = GeminiExtraction.model_validate_json(response.text)
@@ -176,6 +186,8 @@ class GeminiExtractor:
             event_status=parsed.event_status,
             event_date=parsed.event_date,
             due_date=parsed.due_date,
+            shared_event=parsed.shared_event,
+            application_targets=parsed.application_targets,
             reapply_signal=parsed.reapply_signal,
             confidence=parsed.confidence,
             notes=parsed.notes,
