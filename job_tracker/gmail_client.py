@@ -1,8 +1,6 @@
 import base64
-import os
 from datetime import datetime, timezone
 from pathlib import Path
-
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
@@ -10,7 +8,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
 
 class GmailClient:
@@ -35,7 +33,26 @@ class GmailClient:
 
         self.service = build("gmail", "v1", credentials=creds)
 
-    def list_recent_message_ids(self, query="newer_than:7d", max_results=10):
+    def get_or_create_label(self, label_name: str) -> str:
+        results = self.service.users().labels().list(userId="me").execute()
+        labels = results.get("labels", [])
+
+        for label in labels:
+            if label["name"] == label_name:
+                return label["id"]
+
+        created = self.service.users().labels().create(
+            userId="me",
+            body={
+                "name": label_name,
+                "labelListVisibility": "labelShow",
+                "messageListVisibility": "show",
+            },
+        ).execute()
+
+        return created["id"]
+
+    def list_recent_message_ids(self, query="newer_than:2d", max_results=5):
         result = self.service.users().messages().list(
             userId="me",
             q=query,
@@ -59,8 +76,6 @@ class GmailClient:
         thread_id = msg.get("threadId", "")
 
         internal_ts = msg.get("internalDate", "")
-
-        # Convert Gmail timestamp (ms since epoch) → ISO string
         date_iso = ""
         if internal_ts:
             try:
@@ -79,6 +94,13 @@ class GmailClient:
             "body_text": body_text,
             "date_iso": date_iso,
         }
+
+    def add_label_to_message(self, message_id: str, label_id: str):
+        self.service.users().messages().modify(
+            userId="me",
+            id=message_id,
+            body={"addLabelIds": [label_id]}
+        ).execute()
 
     def _extract_plain_text(self, payload):
         if "parts" in payload:
