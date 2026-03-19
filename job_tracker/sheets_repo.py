@@ -41,6 +41,9 @@ class SheetsRepo:
 
     # ---------- generic helpers ----------
 
+    def _row_from_dict(self, headers, data: dict):
+        return [data.get(h, "") for h in headers]
+
     def _get_sheet_values(self, sheet_name: str):
         result = (
             self.service.spreadsheets()
@@ -80,6 +83,28 @@ class SheetsRepo:
             .execute()
         )
 
+    def clear_sheet_data(self, sheet_name: str):
+        values = self._get_sheet_values(sheet_name)
+        if len(values) <= 1:
+            return
+
+        end_row = len(values)
+        rng = f"{sheet_name}!A2:Z{end_row}"
+        body = {"values": []}
+
+        self.service.spreadsheets().values().clear(
+            spreadsheetId=self.spreadsheet_id,
+            range=rng,
+            body={}
+        ).execute()
+
+
+    def clear_all_test_data(self):
+        self.clear_sheet_data(self.applications_sheet)
+        self.clear_sheet_data(self.events_sheet)
+        self.clear_sheet_data(self.event_apps_sheet)
+        self.clear_sheet_data(self.review_sheet)
+
     # ---------- Applications ----------
 
     def get_applications(self):
@@ -116,111 +141,101 @@ class SheetsRepo:
     def create_application(self, ext, app_key: str):
         application_id = str(uuid.uuid4())
 
-        row = [
-            application_id,
-            ext.company or "",
-            ext.role_display or "",
-            ext.role_key or "",
-            ext.job_id or "",
-            app_key or "",
-            ext.status or "Awaiting",
-            ext.application_date or "NOW",
-            ext.application_date or ext.event_date or ext.due_date or "NOW",
-            "",
-            "",
-            "",
-            ext.confidence,
-            ext.notes or "",
-        ]
+        values = self._get_sheet_values(self.applications_sheet)
+        headers = values[0]
+
+        data = {
+            "Company": ext.company,
+            "Status": ext.status or "Awaiting",
+            "Date Applied": ext.application_date or "NOW",
+            "Last Updated": ext.application_date or ext.event_date or ext.due_date or "NOW",
+            "Role Display": ext.role_display,
+            "Job ID": ext.job_id,
+            "Interview Date": "",
+            "Assessment Date": "",
+            "Offer Due Date": "",
+            "Notes": ext.notes or "",
+            "Role Key": ext.role_key,
+            "Confidence": ext.confidence,
+            "Application ID": application_id,
+            "App Key": app_key,
+        }
+
+        row = self._row_from_dict(headers, data)
 
         self._append_row(self.applications_sheet, row)
+
         return self.find_application_by_app_key(app_key)
 
     def update_application_status(self, app: dict, ext, new_status: str):
-        row = [
-            app.get("Application ID", ""),
-            app.get("Company", ""),
-            app.get("Role Display", ""),
-            app.get("Role Key", ""),
-            app.get("Job ID", ""),
-            app.get("App Key", ""),
-            new_status,
-            app.get("Date Applied", ""),
-            ext.application_date or ext.event_date or ext.due_date or "NOW",
-            app.get("Interview Date", ""),
-            app.get("Assessment Date", ""),
-            app.get("Offer Due Date", ""),
-            ext.confidence,
-            ext.notes or app.get("Notes", ""),
-        ]
+        values = self._get_sheet_values(self.applications_sheet)
+        headers = values[0]
+
+        data = dict(app)
+
+        data["Status"] = new_status
+        data["Last Updated"] = ext.application_date or ext.event_date or ext.due_date or "NOW"
+        data["Confidence"] = ext.confidence
+        if ext.notes:
+            data["Notes"] = ext.notes
+
+        row = self._row_from_dict(headers, data)
+
         self._update_row(self.applications_sheet, app["_row"], row)
 
     def refresh_application(self, app: dict, ext):
-        row = [
-            app.get("Application ID", ""),
-            app.get("Company", ""),
-            app.get("Role Display", ""),
-            app.get("Role Key", ""),
-            app.get("Job ID", ""),
-            app.get("App Key", ""),
-            app.get("Status", "Awaiting"),
-            app.get("Date Applied", ""),
-            ext.application_date or ext.event_date or ext.due_date or "NOW",
-            app.get("Interview Date", ""),
-            app.get("Assessment Date", ""),
-            app.get("Offer Due Date", ""),
-            ext.confidence,
-            ext.notes or app.get("Notes", ""),
-        ]
+        values = self._get_sheet_values(self.applications_sheet)
+        headers = values[0]
+
+        data = dict(app)
+
+        data["Last Updated"] = ext.application_date or ext.event_date or ext.due_date or "NOW"
+        data["Confidence"] = ext.confidence
+
+        row = self._row_from_dict(headers, data)
+
         self._update_row(self.applications_sheet, app["_row"], row)
 
     def reset_for_reapply(self, app: dict, ext):
-        row = [
-            app.get("Application ID", ""),
-            app.get("Company", ""),
-            app.get("Role Display", ""),
-            app.get("Role Key", ""),
-            app.get("Job ID", ""),
-            app.get("App Key", ""),
-            "Awaiting",
-            ext.application_date or "NOW",
-            ext.application_date or "NOW",
-            "",
-            "",
-            "",
-            ext.confidence,
-            ext.notes or app.get("Notes", ""),
-        ]
+        values = self._get_sheet_values(self.applications_sheet)
+        headers = values[0]
+
+        data = dict(app)
+
+        data["Status"] = "Awaiting"
+        data["Date Applied"] = ext.application_date or "NOW"
+        data["Last Updated"] = ext.application_date or "NOW"
+        data["Interview Date"] = ""
+        data["Assessment Date"] = ""
+        data["Offer Due Date"] = ""
+        data["Confidence"] = ext.confidence
+
+        row = self._row_from_dict(headers, data)
+
         self._update_row(self.applications_sheet, app["_row"], row)
 
     def update_application_event_fields(self, app: dict, ext, fallback_status: str):
-        interview_date = app.get("Interview Date", "")
-        assessment_date = app.get("Assessment Date", "")
-        offer_due_date = app.get("Offer Due Date", "")
+        values = self._get_sheet_values(self.applications_sheet)
+        headers = values[0]
+
+        data = dict(app)
+
+        data["Status"] = ext.status or fallback_status
+        data["Last Updated"] = ext.event_date or ext.application_date or ext.due_date or "NOW"
 
         if ext.event_type == "Interview":
-            interview_date = ext.event_date or interview_date
-        elif ext.event_type == "Assessment":
-            assessment_date = ext.due_date or ext.event_date or assessment_date
-        elif ext.event_type == "Offer":
-            offer_due_date = ext.due_date or offer_due_date
+            data["Interview Date"] = ext.event_date
 
-        row = [
-            app.get("Application ID", ""),
-            app.get("Company", ""),
-            app.get("Role Display", ""),
-            app.get("Role Key", ""),
-            app.get("Job ID", ""),
-            app.get("App Key", ""),
-            ext.status or fallback_status,
-            app.get("Date Applied", ""),
-            ext.event_date or ext.application_date or ext.due_date or "NOW",
-            interview_date,
-            assessment_date,
-            offer_due_date,
-            ext.confidence,
-            ext.notes or app.get("Notes", ""),
-        ]
+        elif ext.event_type == "Assessment":
+            data["Assessment Date"] = ext.due_date or ext.event_date
+
+        elif ext.event_type == "Offer":
+            data["Offer Due Date"] = ext.due_date
+
+        data["Confidence"] = ext.confidence
+
+        row = self._row_from_dict(headers, data)
+
         self._update_row(self.applications_sheet, app["_row"], row)
 
     # ---------- Events ----------
@@ -230,49 +245,69 @@ class SheetsRepo:
         if not values:
             return []
 
-        headers = values[0]
+        headers = [str(h).strip() for h in values[0]]
         rows = []
+
         for i, row in enumerate(values[1:], start=2):
             padded = row + [""] * (len(headers) - len(row))
             item = dict(zip(headers, padded))
             item["_row"] = i
             rows.append(item)
+
         return rows
 
     def create_event(self, event_key: str, ext):
         event_id = str(uuid.uuid4())
-        row = [
-            event_id,
-            event_key,
-            ext.company or "",
-            ext.event_type or "",
-            ext.event_status or "",
-            ext.event_date or "",
-            ext.due_date or "",
-            ext.confidence,
-            ext.notes or "",
-        ]
+
+        values = self._get_sheet_values(self.events_sheet)
+        headers = values[0]
+
+        data = {
+            "Event ID": event_id,
+            "Event Key": event_key,
+            "Company": ext.company or "",
+            "Event Type": ext.event_type or "",
+            "Event Status": ext.event_status or "",
+            "Event Date": ext.event_date or "",
+            "Due Date": ext.due_date or "",
+            "Confidence": ext.confidence,
+            "Notes": ext.notes or "",
+        }
+
+        row = self._row_from_dict(headers, data)
         self._append_row(self.events_sheet, row)
+
         return self.find_event_by_event_key(event_key)
 
-    def find_event_by_event_key(self, event_key: str) -> Optional[dict]:
-        for row in self.get_events():
-            if row.get("Event Key") == event_key:
+    def find_event_by_event_key(self, event_key: str):
+        if not event_key:
+            return None
+
+        rows = self.get_events()
+        for row in rows:
+            candidate = str(row.get("Event Key", "")).strip()
+            if candidate == event_key.strip():
                 return row
         return None
 
     def update_event(self, event: dict, ext):
-        row = [
-            event.get("Event ID", ""),
-            event.get("Event Key", ""),
-            event.get("Company", ""),
-            event.get("Event Type", ""),
-            ext.event_status or event.get("Event Status", ""),
-            ext.event_date or event.get("Event Date", ""),
-            ext.due_date or event.get("Due Date", ""),
-            ext.confidence,
-            ext.notes or event.get("Notes", ""),
-        ]
+        values = self._get_sheet_values(self.events_sheet)
+        headers = values[0]
+
+        data = dict(event)
+
+        if ext.event_status:
+            data["Event Status"] = ext.event_status
+        if ext.event_date:
+            data["Event Date"] = ext.event_date
+        if ext.due_date:
+            data["Due Date"] = ext.due_date
+
+        data["Confidence"] = ext.confidence
+        if ext.notes:
+            data["Notes"] = ext.notes
+
+        row = self._row_from_dict(headers, data)
         self._update_row(self.events_sheet, event["_row"], row)
 
     # ---------- EventApplications ----------
@@ -297,20 +332,34 @@ class SheetsRepo:
             if row.get("Event ID") == event_id and row.get("Application ID") == application_id:
                 return
 
-        self._append_row(self.event_apps_sheet, [event_id, application_id])
+        values = self._get_sheet_values(self.event_apps_sheet)
+        headers = values[0]
+
+        data = {
+            "Event ID": event_id,
+            "Application ID": application_id,
+        }
+
+        row = self._row_from_dict(headers, data)
+        self._append_row(self.event_apps_sheet, row)
 
     # ---------- Review queue ----------
 
     def enqueue_review(self, reason: str, ext):
-        row = [
-            "NOW",
-            reason,
-            ext.company or "",
-            ext.role_display or "",
-            ext.role_key or "",
-            ext.job_id or "",
-            ext.status or "",
-            ext.confidence,
-            ext.notes or "",
-        ]
+        values = self._get_sheet_values(self.review_sheet)
+        headers = values[0]
+
+        data = {
+            "Company": ext.company or "",
+            "Reason": reason,
+            "Created At": "NOW",
+            "Role Display": ext.role_display or "",
+            "Role Key": ext.role_key or "",
+            "Job ID": ext.job_id or "",
+            "Status": ext.status or "",
+            "Confidence": ext.confidence,
+            "Notes": ext.notes or "",
+        }
+
+        row = self._row_from_dict(headers, data)
         self._append_row(self.review_sheet, row)

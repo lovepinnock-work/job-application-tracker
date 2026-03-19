@@ -1,4 +1,5 @@
 import os
+import time
 
 from extractor import GeminiExtractor
 from reconciler import Reconciler
@@ -36,6 +37,21 @@ def main():
     reconciler = Reconciler(repo)
 
     files = [
+        "test_emails/glean_apply.txt",
+        "test_emails/glean_reject.txt",
+        "test_emails/junk_linkedin.txt",
+        "test_emails/usa_reject.txt",
+        "test_emails/amazon_apply.txt",
+        "test_emails/amazon_apply_1.txt",
+        "test_emails/amazon_assessment_invite.txt",
+        "test_emails/amazon_assessment_reminder.txt",
+        "test_emails/amazon_assessment_completed.txt",
+        "test_emails/amazon_reject.txt",
+        "test_emails/amazon_reject_1.txt",
+    ]
+
+    """
+        files = [ # Test multiple emails from same company/role/job_id to test app key logic
         "test_emails/amazon_apply.txt",
         "test_emails/amazon_apply_1.txt",
         "test_emails/amazon_assessment_invite.txt",
@@ -46,8 +62,7 @@ def main():
         "test_emails/sf_assessment_invite.txt"
     ]
 
-    """
-        files = [
+        files = [ # Unit testing
         "test_emails/glean_apply.txt",
         "test_emails/glean_reject.txt",
         "test_emails/linkedin_apply.txt",
@@ -60,11 +75,19 @@ def main():
         "test_emails/junk_nvidia.txt",
         "test_emails/junk_sf.txt",
         "test_emails/junk_northrop.txt",
-        "test_emails/junk_linkedin.txt"
+        "test_emails/junk_linkedin.txt",
+        "test_emails/amazon_apply.txt",
+        "test_emails/amazon_apply_1.txt",
+        "test_emails/amazon_assessment_invite.txt",
+        "test_emails/amazon_assessment_reminder.txt",
+        "test_emails/amazon_assessment_completed.txt",
+        "test_emails/amazon_reject.txt",
+        "test_emails/amazon_reject_1.txt",
+        "test_emails/sf_assessment_invite.txt"
     ]
 
     """
-
+    repo.clear_all_test_data() # TODO: remove this line after testing
     for f in files:
         subject, from_header, body = load_email(f)
 
@@ -81,6 +104,7 @@ def main():
         print(ext)
 
         reconciler.process(ext)
+        time.sleep(1)  # Sleep to help avoid hitting Google Sheets API rate limits
 
 
 if __name__ == "__main__":
