@@ -29,6 +29,7 @@ Rules:
   - role_key: "data analyst lending"
 - If a job ID or requisition ID appears, include it.
 - If an assessment/interview/offer has a concrete date or due date, extract it.
+- Assessment reminder emails, incomplete-assessment reminders, and "waiting for your assessment result" emails are not assessment_completed unless the email explicitly says the candidate completed or submitted the assessment.
 - If no reliable date is present, return null rather than guessing.
 - If an assessment, interview, or offer email does not name a specific role or job ID but clearly applies to multiple active applications at the same company, set shared_event to true.
 - If the email appears to be a generic online assessment for all active applications at a company, prefer shared_event=true rather than false.
@@ -127,6 +128,68 @@ class GeminiExtractor:
 
         return any(p in text for p in junk_patterns)
 
+    # This is a safety net for certain patterns that the model struggles with, to prevent misclassification of important emails.
+    def _rule_based_override(self, subject: str, body: str, from_header: str = ""):
+        text = f"{subject}\n{body}\n{from_header}".lower()
+
+        # CodeSignal reminder / waiting-on-result emails are NOT completion emails
+        if "codesignal" in text and "waiting for your" in text and "assessment result" in text:
+            company = None
+
+            # crude but effective company extraction from subject like:
+            # "Reminder: RippleMatch is waiting for your RippleMatch Assessment result on CodeSignal"
+            if ":" in subject:
+                after_colon = subject.split(":", 1)[1].strip()
+                if " is waiting for your " in after_colon:
+                    company = after_colon.split(" is waiting for your ", 1)[0].strip()
+
+            if not company and "ripplematch" in text:
+                company = "RippleMatch"
+
+            return Extraction(
+                is_job_related=True,
+                email_type="assessment_invite",
+                company=company,
+                role_display=None,
+                role_key=None,
+                job_id=None,
+                status="Assessment",
+                application_date=None,
+                event_type="Assessment",
+                event_status="Open",
+                event_date=None,
+                due_date=None,
+                shared_event=False,
+                application_targets=[],
+                reapply_signal=False,
+                confidence=0.99,
+                notes="Rule override: CodeSignal assessment reminder/waiting-for-result email",
+            )
+
+        # generic assessment reminder
+        if "reminder:" in text and "assessment" in text and "codesignal" in text:
+            return Extraction(
+                is_job_related=True,
+                email_type="assessment_invite",
+                company=None,
+                role_display=None,
+                role_key=None,
+                job_id=None,
+                status="Assessment",
+                application_date=None,
+                event_type="Assessment",
+                event_status="Open",
+                event_date=None,
+                due_date=None,
+                shared_event=False,
+                application_targets=[],
+                reapply_signal=False,
+                confidence=0.95,
+                notes="Rule override: generic assessment reminder",
+            )
+
+        return None
+
     def extract(
         self,
         subject: str,
@@ -156,6 +219,10 @@ class GeminiExtractor:
                 confidence=0.99,
                 notes="Filtered as obvious non-job email",
             )
+        
+        override = self._rule_based_override(subject, body, from_header)
+        if override is not None:
+            return override
 
         cache_key = self._cache_key(subject, body, from_header, date_iso, thread_id, message_id)
         cache_path = self._cache_path(cache_key)

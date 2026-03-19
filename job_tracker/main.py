@@ -150,7 +150,7 @@ def get_gmail_messages(gmail: GmailClient, processed_cache: dict):
     query = (
         f'newer_than:2d -label:"{PROCESSED_LABEL_NAME}" '
         '('
-        'subject:("application" OR "interview" OR "assessment" OR "offer" OR "rejection" OR "thank you for applying" OR "not moving forward") '
+        'subject:("application" OR "interview" OR "assessment" OR "offer" OR "rejection" OR "thank you" OR "not moving forward" OR "update" OR "follow up") '
         'OR from:(jobs OR careers OR recruiting OR talent OR greenhouse OR workday OR lever OR ashby OR codesignal OR hackerrank)'
         ')'
     )

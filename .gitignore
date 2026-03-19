@@ -6,3 +6,4 @@ test_emails/
 gmail_token.json
 gmail_oauth_client.json
 cache/
+state/
