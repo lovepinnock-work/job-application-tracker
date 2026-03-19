@@ -90,7 +90,6 @@ class GeminiExtraction(BaseModel):
     event_date: Optional[str] = Field(default=None)
     due_date: Optional[str] = Field(default=None)
 
-    # NEW
     shared_event: bool = Field(default=False)
     application_targets: List[str] = Field(default_factory=list)
 
@@ -120,7 +119,7 @@ class GeminiExtractor:
             "new sign-in",
             "your job alert",
             "this job is a match",
-            "talent community",
+            "community",
             "manage your job alerts",
             "messages-noreply@linkedin.com",
             "jobalerts-noreply@linkedin.com",
