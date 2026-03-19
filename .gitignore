@@ -3,3 +3,6 @@ service_account.json
 job_tracker/__pycache__/
 test_emails/
 .vscode/
+gmail_token.json
+gmail_oauth_client.json
+cache/
