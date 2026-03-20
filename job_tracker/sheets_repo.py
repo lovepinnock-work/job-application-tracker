@@ -1,6 +1,7 @@
 import os
 import uuid
 from typing import Optional
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 from google.oauth2.service_account import Credentials
@@ -40,6 +41,12 @@ class SheetsRepo:
         self.review_sheet = "ReviewQueue"
 
     # ---------- generic helpers ----------
+
+
+    def _date_only(self, value) -> str:
+        if not value:
+            return ""
+        return str(value)[:10]
 
     def _row_from_dict(self, headers, data: dict):
         return [data.get(h, "") for h in headers]
@@ -121,13 +128,22 @@ class SheetsRepo:
             rows.append(item)
         return rows
 
-    def find_application_by_app_key(self, app_key: str) -> Optional[dict]:
+    def find_application_by_app_key(self, app_key: str):
         if not app_key:
+            print("find_application_by_app_key: no app_key provided")
             return None
 
-        for row in self.get_applications():
-            if row.get("App Key") == app_key:
+        rows = self.get_applications()
+        print(f"Looking for App Key: {repr(app_key)}")
+
+        for row in rows:
+            candidate = str(row.get("App Key", "")).strip()
+            print("Comparing against existing App Key:", repr(candidate))
+            if candidate == app_key.strip():
+                print("MATCH FOUND")
                 return row
+
+        print("NO MATCH FOUND")
         return None
 
     def get_open_applications_by_company(self, company: str):
@@ -147,8 +163,8 @@ class SheetsRepo:
         data = {
             "Company": ext.company,
             "Status": ext.status or "Awaiting",
-            "Date Applied": ext.application_date or "NOW",
-            "Last Updated": ext.application_date or ext.event_date or ext.due_date or "NOW",
+            "Date Applied": self._date_only(ext.application_date or datetime.now(timezone.utc).isoformat()),
+            "Last Updated": self._date_only(ext.application_date or ext.event_date or ext.due_date or datetime.now(timezone.utc).isoformat()),
             "Role Display": ext.role_display,
             "Job ID": ext.job_id,
             "Interview Date": "",
@@ -174,7 +190,7 @@ class SheetsRepo:
         data = dict(app)
 
         data["Status"] = new_status
-        data["Last Updated"] = ext.application_date or ext.event_date or ext.due_date or "NOW"
+        data["Last Updated"] = self._date_only(ext.application_date or ext.event_date or ext.due_date or datetime.now(timezone.utc).isoformat())
         data["Confidence"] = ext.confidence
         if ext.notes:
             data["Notes"] = ext.notes
@@ -189,7 +205,7 @@ class SheetsRepo:
 
         data = dict(app)
 
-        data["Last Updated"] = ext.application_date or ext.event_date or ext.due_date or "NOW"
+        data["Last Updated"] = self._date_only(ext.application_date or ext.event_date or ext.due_date or datetime.now(timezone.utc).isoformat())
         data["Confidence"] = ext.confidence
 
         row = self._row_from_dict(headers, data)
@@ -203,8 +219,8 @@ class SheetsRepo:
         data = dict(app)
 
         data["Status"] = "Awaiting"
-        data["Date Applied"] = ext.application_date or "NOW"
-        data["Last Updated"] = ext.application_date or "NOW"
+        data["Date Applied"] = self._date_only(ext.application_date or datetime.now(timezone.utc).isoformat())
+        data["Last Updated"] = self._date_only(ext.application_date or datetime.now(timezone.utc).isoformat())
         data["Interview Date"] = ""
         data["Assessment Date"] = ""
         data["Offer Due Date"] = ""
@@ -221,16 +237,16 @@ class SheetsRepo:
         data = dict(app)
 
         data["Status"] = ext.status or fallback_status
-        data["Last Updated"] = ext.event_date or ext.application_date or ext.due_date or "NOW"
+        data["Last Updated"] = self._date_only(ext.event_date or ext.application_date or ext.due_date or datetime.now(timezone.utc).isoformat())
 
         if ext.event_type == "Interview":
-            data["Interview Date"] = ext.event_date
+            data["Interview Date"] = self._date_only(ext.event_date)
 
         elif ext.event_type == "Assessment":
-            data["Assessment Date"] = ext.due_date or ext.event_date
+            data["Assessment Date"] = self._date_only(ext.due_date or ext.event_date)
 
         elif ext.event_type == "Offer":
-            data["Offer Due Date"] = ext.due_date
+            data["Offer Due Date"] = self._date_only(ext.due_date)
 
         data["Confidence"] = ext.confidence
 
@@ -268,8 +284,8 @@ class SheetsRepo:
             "Company": ext.company or "",
             "Event Type": ext.event_type or "",
             "Event Status": ext.event_status or "",
-            "Event Date": ext.event_date or "",
-            "Due Date": ext.due_date or "",
+            "Event Date": self._date_only(ext.event_date or ""),
+            "Due Date": self._date_only(ext.due_date or ""),
             "Confidence": ext.confidence,
             "Notes": ext.notes or "",
         }
@@ -299,9 +315,9 @@ class SheetsRepo:
         if ext.event_status:
             data["Event Status"] = ext.event_status
         if ext.event_date:
-            data["Event Date"] = ext.event_date
+            data["Event Date"] = self._date_only(ext.event_date)
         if ext.due_date:
-            data["Due Date"] = ext.due_date
+            data["Due Date"] = self._date_only(ext.due_date)
 
         data["Confidence"] = ext.confidence
         if ext.notes:
@@ -352,7 +368,7 @@ class SheetsRepo:
         data = {
             "Company": ext.company or "",
             "Reason": reason,
-            "Created At": "NOW",
+            "Created At": self._date_only(datetime.now(timezone.utc).isoformat()),
             "Role Display": ext.role_display or "",
             "Role Key": ext.role_key or "",
             "Job ID": ext.job_id or "",

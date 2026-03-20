@@ -11,6 +11,7 @@ class Reconciler:
             return {"result": "ignored", "needs_review": False}
 
         app_key = make_app_key(ext.company, ext.role_key, ext.job_id)
+        print("DEBUG computed app_key:", repr(app_key))        
 
         if ext.email_type == "application_confirmation":
             return self._handle_application_confirmation(ext, app_key)

@@ -12,7 +12,7 @@ from gmail_client import GmailClient
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Modes
-RUN_MODE = "GMAIL"   # "TEST_EMAILS" or "GMAIL"
+RUN_MODE = "TEST_EMAILS"   # "TEST_EMAILS" or "GMAIL"
 TEST_CASE = 0        # used only for TEST_EMAILS
 
 # Test controls
@@ -29,7 +29,6 @@ STATE_DIR.mkdir(exist_ok=True)
 
 PROCESSED_CACHE_FILE = STATE_DIR / "processed_messages.json"
 RUN_LOG_FILE = STATE_DIR / "run_log.jsonl"
-
 
 def utc_now_iso():
     return datetime.now(timezone.utc).isoformat()
@@ -90,8 +89,8 @@ def get_test_messages(case=0):
 
     if case == 0:
         files = [
-            "test_emails/glean_apply.txt",
-            "test_emails/glean_reject.txt",
+            "test_emails/linkedin_app_1.txt",
+            "test_emails/linkedin_app_2.txt",
         ]
     elif case == 1:
         files = [
@@ -168,6 +167,12 @@ def get_gmail_messages(gmail: GmailClient, processed_cache: dict):
 
 
 def main():
+    HEARTBEAT_FILE = STATE_DIR / "heartbeat.txt"
+
+    def write_heartbeat():
+        HEARTBEAT_FILE.write_text(f"last_run={utc_now_iso()}\n", encoding="utf-8")
+    write_heartbeat()
+    
     extractor = GeminiExtractor()
     repo = SheetsRepo()
     reconciler = Reconciler(repo)
@@ -177,6 +182,20 @@ def main():
     gmail = None
     processed_label_id = None
     review_label_id = None
+
+    # Update run log everytime main is ran
+    append_run_log({
+        "ts": utc_now_iso(),
+        "mode": RUN_MODE,
+        "message_id": None,
+        "thread_id": None,
+        "subject": None,
+        "from": None,
+        "result": "startup",
+        "needs_review": False,
+        "error": None,
+    })
+    print(f"MAIN STARTED at {utc_now_iso()} in mode {RUN_MODE}")
 
     if RUN_MODE == "TEST_EMAILS":
         if CLEAR_SHEETS_BEFORE_TEST:
@@ -252,6 +271,20 @@ def main():
         append_run_log(run_log_entry)
         time.sleep(SLEEP_SECONDS)
 
-
+# Catch exceptions at top level, ensuring run log is always updated
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        append_run_log({
+            "ts": utc_now_iso(),
+            "mode": RUN_MODE,
+            "message_id": None,
+            "thread_id": None,
+            "subject": None,
+            "from": None,
+            "result": "fatal_error",
+            "needs_review": False,
+            "error": str(e),
+        })
+        raise
