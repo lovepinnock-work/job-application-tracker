@@ -379,3 +379,52 @@ class SheetsRepo:
 
         row = self._row_from_dict(headers, data)
         self._append_row(self.review_sheet, row)
+
+    def get_review_rows(self):
+        values = self._get_sheet_values(self.review_sheet)
+        if not values:
+            return []
+
+        headers = [str(h).strip() for h in values[0]]
+        rows = []
+
+        for i, row in enumerate(values[1:], start=2):
+            padded = row + [""] * (len(headers) - len(row))
+            item = dict(zip(headers, padded))
+            item["_row"] = i
+            rows.append(item)
+
+        return rows
+
+    def get_review_row_by_index(self, row_number: int):
+        for row in self.get_review_rows():
+            if row["_row"] == row_number:
+                return row
+        return None
+
+    def append_application_from_payload(self, payload: dict):
+        values = self._get_sheet_values(self.applications_sheet)
+        headers = [str(h).strip() for h in values[0]]
+        row = self._row_from_dict(headers, payload)
+        self._append_row(self.applications_sheet, row)
+
+    def append_event_from_payload(self, payload: dict):
+        values = self._get_sheet_values(self.events_sheet)
+        headers = [str(h).strip() for h in values[0]]
+        row = self._row_from_dict(headers, payload)
+        self._append_row(self.events_sheet, row)
+
+    def append_event_application_link_from_payload(self, payload: dict):
+        values = self._get_sheet_values(self.event_apps_sheet)
+        headers = [str(h).strip() for h in values[0]]
+        row = self._row_from_dict(headers, payload)
+        self._append_row(self.event_apps_sheet, row)
+
+    def clear_review_row(self, row_number: int):
+        values = self._get_sheet_values(self.review_sheet)
+        if not values:
+            return
+
+        headers = [str(h).strip() for h in values[0]]
+        empty_row = [""] * len(headers)
+        self._update_row(self.review_sheet, row_number, empty_row)
