@@ -4,6 +4,7 @@ from pathlib import Path
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google.auth.exceptions import RefreshError
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
@@ -18,15 +19,21 @@ class GmailClient:
         self.credentials_path = base_dir / "gmail_oauth_client.json"
 
         creds = None
+
         if self.token_path.exists():
             creds = Credentials.from_authorized_user_file(str(self.token_path), SCOPES)
 
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
+        if creds and creds.expired and creds.refresh_token:
+            try:
                 creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(str(self.credentials_path), SCOPES)
-                creds = flow.run_local_server(port=0)
+            except RefreshError:
+                creds = None
+                if self.token_path.exists():
+                    self.token_path.unlink()
+
+        if not creds or not creds.valid:
+            flow = InstalledAppFlow.from_client_secrets_file(str(self.credentials_path), SCOPES)
+            creds = flow.run_local_server(port=0)
 
             with open(self.token_path, "w", encoding="utf-8") as token:
                 token.write(creds.to_json())

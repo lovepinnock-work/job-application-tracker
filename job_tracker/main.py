@@ -12,7 +12,7 @@ from gmail_client import GmailClient
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Modes
-RUN_MODE = "TEST_EMAILS"   # "TEST_EMAILS" or "GMAIL"
+RUN_MODE = "GMAIL"   # "TEST_EMAILS" or "GMAIL"
 TEST_CASE = 0        # used only for TEST_EMAILS
 
 # Test controls
