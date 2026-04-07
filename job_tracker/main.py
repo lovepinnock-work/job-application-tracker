@@ -12,7 +12,7 @@ from gmail_client import GmailClient
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Modes
-RUN_MODE = "TEST_EMAILS"   # "TEST_EMAILS" or "GMAIL"
+RUN_MODE = "TEST_EMAILS"   # TODO: Revert "TEST_EMAILS" or "GMAIL"
 TEST_CASE = 0        # used only for TEST_EMAILS
 
 # Test controls
@@ -147,10 +147,16 @@ def get_test_messages(case=0):
 
 def get_gmail_messages(gmail: GmailClient, processed_cache: dict):
     query = (
-        f'newer_than:2d -label:"{PROCESSED_LABEL_NAME}" '
+        f'newer_than:14d -label:"{PROCESSED_LABEL_NAME}" '
         '('
-        'subject:("application" OR "interview" OR "assessment" OR "offer" OR "rejection" OR "thank you" OR "not moving forward" OR "update" OR "follow up") '
-        'OR from:(jobs OR careers OR recruiting OR talent OR greenhouse OR workday OR lever OR ashby OR codesignal OR hackerrank)'
+        'subject:("application" OR "applying" OR "interview" OR "assessment" OR "offer" OR "rejection" OR "thanks for applying" OR "application status" OR "exam" OR "test" OR "invitation") '
+        'OR "received your application" '
+        'OR "not proceed" '
+        'OR "not a match" '
+        'OR "application status" '
+        'OR "written exam" '
+        'OR "physical agility test" '
+        'OR from:(jobs OR careers OR recruiting OR talent OR greenhouse OR workday OR myworkday OR lever OR ashby OR codesignal OR hackerrank OR governmentjobs)'
         ')'
     )
 
@@ -163,6 +169,7 @@ def get_gmail_messages(gmail: GmailClient, processed_cache: dict):
         msg = gmail.get_message(message_id)
         messages.append(msg)
 
+    messages.sort(key=lambda msg: msg.get("date_iso", ""))
     return messages
 
 

@@ -117,10 +117,13 @@ class GeminiExtractor:
         junk_patterns = [
             "security alert",
             "new sign-in",
+            "new job alert",
             "your job alert",
             "this job is a match",
             "community",
             "manage your job alerts",
+            "wants your feedback",
+            "new jobs at",           
             "messages-noreply@linkedin.com",
             "jobalerts-noreply@linkedin.com",
         ]
