@@ -3,11 +3,7 @@ from typing import Optional
 import uuid
 
 from util import make_app_key, make_event_key
-
-
-def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
+from state_store import utc_now_iso
 
 def make_application_payload(
     company: str,

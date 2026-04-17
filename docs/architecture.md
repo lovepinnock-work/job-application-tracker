@@ -18,6 +18,7 @@ Gmail Poller
 ```
 
 ### Technical Highlights
+- Service Oriented Architecture: Polling and processing split into loosely coupled, seperate services.
 - Designed an entity reconciliation system to merge noisy, multi-source email updates into stable application records
 - Modeled many-to-many relationships between applications and hiring events
 - Built a hybrid automation flow combining deterministic filtering, structured LLM extraction, and human review

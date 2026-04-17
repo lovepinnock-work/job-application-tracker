@@ -10,5 +10,6 @@ cache/
 state/*.json
 state/*.txt
 state/*.jsonl
+state/*.log
 *.pyc
 __pycache__/

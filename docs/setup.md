@@ -41,6 +41,9 @@ Use local fixture emails in test_emails/ to validate extraction and reconciliati
 ## Run in Gmail mode
 
 Use Gmail polling mode once OAuth is configured and the spreadsheet is ready.
+Use task scheduler or equivalent to run on a schedule:
+- Polling every 30 minutes
+- Processing every 2-4 hours
 
 For additional details, see:
 - [Demo](demo-walkthrough.md)

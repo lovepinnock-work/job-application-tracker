@@ -149,7 +149,7 @@ def choose_application_id(repo, review):
 
 def promote_to_application(repo, review):
     status = prompt("Application status", review.get("Status") or "Awaiting")
-    date_applied = prompt("Date applied (YYYY-MM-DD)", "")
+    date_applied = prompt("Date applied (YYYY-MM-DD)", review.get("Created At"))
     notes = prompt("Notes", review.get("Notes", ""))
 
     confidence_val = None
@@ -184,7 +184,7 @@ def promote_to_application(repo, review):
 def promote_to_event(repo, review):
     event_type = prompt("Event type", "Assessment")
     event_status = prompt("Event status", "Open")
-    event_date = prompt("Event date (YYYY-MM-DD)", "")
+    event_date = prompt("Event date (YYYY-MM-DD)", review.get("Created At"))
     due_date = prompt("Due date (YYYY-MM-DD)", "")
     notes = prompt("Notes", review.get("Notes", ""))
 
