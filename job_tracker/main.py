@@ -12,7 +12,7 @@ from gmail_client import GmailClient
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Modes
-RUN_MODE = "TEST_EMAILS"   # TODO: Revert "TEST_EMAILS" or "GMAIL"
+RUN_MODE = "GMAIL"   # "TEST_EMAILS" or "GMAIL"
 TEST_CASE = 0        # used only for TEST_EMAILS
 
 # Test controls
@@ -89,58 +89,10 @@ def get_test_messages(case=0):
 
     if case == 0:
         files = [
-            "test_emails/linkedin_app_1.txt",
-            "test_emails/linkedin_app_2.txt",
+            "test_emails/apply.example"
         ]
     elif case == 1:
-        files = [
-            "test_emails/glean_apply.txt",
-            "test_emails/glean_reject.txt",
-            "test_emails/junk_linkedin.txt",
-            "test_emails/usa_reject.txt",
-            "test_emails/amazon_apply.txt",
-            "test_emails/amazon_apply_1.txt",
-            "test_emails/amazon_assessment_invite.txt",
-            "test_emails/amazon_assessment_reminder.txt",
-            "test_emails/amazon_assessment_completed.txt",
-            "test_emails/amazon_reject.txt",
-            "test_emails/amazon_reject_1.txt",
-        ]
-    elif case == 2:
-        files = [
-            "test_emails/amazon_apply.txt",
-            "test_emails/amazon_apply_1.txt",
-            "test_emails/amazon_assessment_invite.txt",
-            "test_emails/amazon_assessment_reminder.txt",
-            "test_emails/amazon_assessment_completed.txt",
-            "test_emails/amazon_reject.txt",
-            "test_emails/amazon_reject_1.txt",
-            "test_emails/sf_assessment_invite.txt",
-        ]
-    elif case == 3:
-        files = [
-            "test_emails/glean_apply.txt",
-            "test_emails/glean_reject.txt",
-            "test_emails/linkedin_apply.txt",
-            "test_emails/sf_1_apply.txt",
-            "test_emails/sf_assessment_invite.txt",
-            "test_emails/sf_assessment_pass.txt",
-            "test_emails/apple_interview.txt",
-            "test_emails/offer_example.txt",
-            "test_emails/junk_microsoft.txt",
-            "test_emails/junk_nvidia.txt",
-            "test_emails/junk_sf.txt",
-            "test_emails/junk_northrop.txt",
-            "test_emails/junk_linkedin.txt",
-            "test_emails/amazon_apply.txt",
-            "test_emails/amazon_apply_1.txt",
-            "test_emails/amazon_assessment_invite.txt",
-            "test_emails/amazon_assessment_reminder.txt",
-            "test_emails/amazon_assessment_completed.txt",
-            "test_emails/amazon_reject.txt",
-            "test_emails/amazon_reject_1.txt",
-            "test_emails/sf_assessment_invite.txt",
-        ]
+        files = [ file for file in Path(BASE_DIR / "test_emails").iterdir() ]
 
     return [load_email(f) for f in files]
 
@@ -160,7 +112,7 @@ def get_gmail_messages(gmail: GmailClient, processed_cache: dict):
         ')'
     )
 
-    message_ids = gmail.list_recent_message_ids(query=query, max_results=5)
+    message_ids = gmail.list_recent_message_ids(query=query, max_results=3)
 
     messages = []
     for message_id in message_ids:

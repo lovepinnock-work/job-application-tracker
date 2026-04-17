@@ -1,9 +1,14 @@
 .env
 service_account.json
 job_tracker/__pycache__/
-test_emails/
+test_emails/*.txt
 .vscode/
 gmail_token.json
 gmail_oauth_client.json
 cache/
-state/
+./cache
+state/*.json
+state/*.txt
+state/*.jsonl
+*.pyc
+__pycache__/

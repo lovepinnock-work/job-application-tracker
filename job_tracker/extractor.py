@@ -120,6 +120,8 @@ class GeminiExtractor:
             "new job alert",
             "your job alert",
             "this job is a match",
+            "here are some new roles",
+            "here are some jobs",
             "community",
             "manage your job alerts",
             "wants your feedback",
