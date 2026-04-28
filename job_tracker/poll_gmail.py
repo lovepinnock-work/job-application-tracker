@@ -4,7 +4,7 @@ from pathlib import Path
 
 from gmail_client import GmailClient
 from queue_store import load_pending_queue, save_pending_queue, add_to_pending_queue
-from config import PROCESSED_LABEL_NAME
+from config import PROCESSED_LABEL_NAME, MAX_FETCH_RESULTS
 from state_store import (
     utc_now_iso,
     load_processed_cache,
@@ -18,7 +18,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 STATE_DIR = BASE_DIR / "state"
 STATE_DIR.mkdir(exist_ok=True)
 
-MAX_FETCH_RESULTS = 18
 
 
 def obvious_non_job(subject: str, body: str, from_header: str = "") -> bool:
@@ -57,6 +56,7 @@ def obvious_non_job(subject: str, body: str, from_header: str = "") -> bool:
         "code expires in",
         "one-time pass code",
         "messages received",
+        "see who else is applying",
         "your application was viewed",
         "finalize your profile",
         "here are some new roles at",
@@ -86,8 +86,8 @@ def get_candidate_messages(gmail: GmailClient, processed_cache: dict, queue: lis
         'OR "application status" '
         'OR "submitted your application" '
         'OR "your interest" '
-        'OR "reapply" ',
-        'OR "regret to inform you" ',
+        'OR "reapply" '
+        'OR "regret to inform you" '
         'OR "unfortunately" '
         'OR "exam" '
         'OR from:(jobs OR careers OR recruiting OR talent OR greenhouse OR indeed OR workday OR myworkday OR lever OR ashby OR ashbyhq OR codesignal OR hackerrank OR governmentjobs)'
@@ -114,6 +114,17 @@ def get_candidate_messages(gmail: GmailClient, processed_cache: dict, queue: lis
 def main():
     
     write_heartbeat()
+    append_run_log({
+        "ts": utc_now_iso(),
+        "mode": "POLL_ONLY",
+        "message_id": None,
+        "thread_id": None,
+        "subject": None,
+        "from": None,
+        "result": "startup",
+        "needs_review": False,
+        "error": None,
+    })
 
     gmail = GmailClient()
     processed_label_id = gmail.get_or_create_label(PROCESSED_LABEL_NAME)

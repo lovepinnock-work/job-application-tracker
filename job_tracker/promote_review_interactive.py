@@ -242,37 +242,42 @@ def clear_review_only(repo, review):
 def main():
     repo = SheetsRepo()
 
-    rows = list_review_rows(repo)
-    if not rows:
-        return
+    while True:
+        rows = list_review_rows(repo)
+        if not rows:
+            return
 
-    row_num_raw = prompt("Enter ReviewQueue row number to act on")
-    try:
-        row_num = int(row_num_raw)
-    except ValueError:
-        print("Invalid row number.")
-        return
+        row_num_raw = prompt("Enter ReviewQueue row number to act on [Enter -1 to terminate]")
+        try:
+            row_num = int(row_num_raw)
+        except ValueError:
+            print("Invalid row number.")
+            return
+        
+        if row_num == -1:
+            print("Exiting")
+            return
 
-    review = repo.get_review_row_by_index(row_num)
-    if not review:
-        print(f"Review row {row_num} not found.")
-        return
+        review = repo.get_review_row_by_index(row_num)
+        if not review:
+            print(f"Review row {row_num} not found.")
+            return
 
-    print("\nSelected Review Row:")
-    for k, v in review.items():
-        if not k.startswith("_"):
-            print(f"{k}: {v}")
+        print("\nSelected Review Row:")
+        for k, v in review.items():
+            if not k.startswith("_"):
+                print(f"{k}: {v}")
 
-    choice = prompt("Choose action: application / event / clear", "application").lower()
+        choice = prompt("Choose action: application / event / clear", "application").lower()
 
-    if choice == "application":
-        promote_to_application(repo, review)
-    elif choice == "event":
-        promote_to_event(repo, review)
-    elif choice == "clear":
-        clear_review_only(repo, review)
-    else:
-        print("Invalid choice. Use 'application', 'event', or 'clear'.")
+        if choice == "application":
+            promote_to_application(repo, review)
+        elif choice == "event":
+            promote_to_event(repo, review)
+        elif choice == "clear":
+            clear_review_only(repo, review)
+        else:
+            print("Invalid choice. Use 'application', 'event', or 'clear'.")
 
 
 if __name__ == "__main__":

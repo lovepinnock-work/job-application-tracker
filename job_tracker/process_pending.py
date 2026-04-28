@@ -41,6 +41,17 @@ def is_temporary_api_error(exc: Exception) -> bool:
 def main():
 
     write_heartbeat()
+    append_run_log({
+        "ts": utc_now_iso(),
+        "mode": "PROCESS_PENDING",
+        "message_id": None,
+        "thread_id": None,
+        "subject": None,
+        "from": None,
+        "result": "startup",
+        "needs_review": False,
+        "error": None,
+    })
 
     repo = SheetsRepo()
     reconciler = Reconciler(repo)
@@ -137,4 +148,19 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        append_run_log({
+            "ts": utc_now_iso(),
+            "mode": "PROCESS_PENDING",
+            "message_id": None,
+            "thread_id": None,
+            "subject": None,
+            "from": None,
+            "result": None,
+            "needs_review": False,
+            "error": str(e),
+        })
+        print(f"ERROR in main: {e}")
+        raise
