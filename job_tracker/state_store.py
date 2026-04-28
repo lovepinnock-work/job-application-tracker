@@ -10,6 +10,8 @@ STATE_DIR.mkdir(exist_ok=True)
 PROCESSED_CACHE_FILE = STATE_DIR / "processed_messages.json"
 RUN_LOG_FILE = STATE_DIR / "run_log.jsonl"
 HEARTBEAT_FILE = STATE_DIR / "heartbeat.txt"
+PROCESS_HEARTBEAT_FILE = STATE_DIR / "process_heartbeat.txt"
+POLL_HEARTBEAT_FILE = STATE_DIR / "poll_heartbeat.txt"
 
 
 def utc_now_iso():
@@ -19,6 +21,11 @@ def utc_now_iso():
 def write_heartbeat():
     HEARTBEAT_FILE.write_text(f"last_run={utc_now_iso()}\n", encoding="utf-8")
 
+def write_polling_heartbeat():
+    POLL_HEARTBEAT_FILE.write_text(f"last_run={utc_now_iso()}\n", encoding="utf-8")
+
+def write_processing_heartbeat():
+    PROCESS_HEARTBEAT_FILE.write_text(f"last_run={utc_now_iso()}\n", encoding="utf-8")
 
 def load_processed_cache():
     if not PROCESSED_CACHE_FILE.exists():

@@ -10,7 +10,7 @@ from state_store import (
     load_processed_cache,
     save_processed_cache,
     append_run_log,
-    write_heartbeat,
+    write_polling_heartbeat,
 )
 
 
@@ -113,7 +113,7 @@ def get_candidate_messages(gmail: GmailClient, processed_cache: dict, queue: lis
 
 def main():
     
-    write_heartbeat()
+    write_polling_heartbeat()
     append_run_log({
         "ts": utc_now_iso(),
         "mode": "POLL_ONLY",
@@ -133,7 +133,18 @@ def main():
 
     messages = get_candidate_messages(gmail, processed_cache, queue)
 
-    print(f"Polling found {len(messages)} candidate Gmail message(s).")
+    append_run_log({
+        "ts": utc_now_iso(),
+        "mode": "POLL_ONLY",
+        "message_id": None,
+        "thread_id": None,
+        "subject": None,
+        "from": None,
+        "result": f"Queue_Size={len(queue)} and Candidate_Messages={len(messages)}",
+        "needs_review": False,
+        "error": None,
+    })
+    print(f"Polling found {len(messages)} candidate Gmail message(s). {len(queue)} message(s) currently in pending queue.")
 
     for msg in messages:
         subject = msg["subject"]

@@ -17,7 +17,7 @@ from state_store import (
     load_processed_cache,
     save_processed_cache,
     append_run_log,
-    write_heartbeat,
+    write_processing_heartbeat,
 )
 from config import (
     PROCESSED_LABEL_NAME,
@@ -40,7 +40,7 @@ def is_temporary_api_error(exc: Exception) -> bool:
 
 def main():
 
-    write_heartbeat()
+    write_processing_heartbeat()
     append_run_log({
         "ts": utc_now_iso(),
         "mode": "PROCESS_PENDING",
@@ -77,6 +77,17 @@ def main():
             break
 
         if not can_consume(MAX_GEMINI_CALLS_PER_DAY):
+            append_run_log({
+                "ts": utc_now_iso(),
+                "mode": "PROCESS_PENDING",
+                "message_id": None, 
+                "thread_id": None,
+                "subject": None,
+                "from": None,
+                "result": "gemini_budget_exhausted",
+                "needs_review": False,
+                "error": None,
+            })
             print("Daily Gemini budget exhausted.")
             break
 
